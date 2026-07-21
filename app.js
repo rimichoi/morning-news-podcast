@@ -102,7 +102,8 @@ const SOURCES = [
         label: '헤이 고뉴브',
         type: 'json',
         buildUrl: () =>
-            'https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=20&sortNew=1&keyword=',
+            // 전체 40건을 받아 '헤이 고뉴브' 코너만 필터링하면 약 10건이 나온다.
+            'https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=40&sortNew=1&keyword=',
         parse: (raw) => (raw?.data || []).map((i) => normalizeSbsItem(i, 'sbs-gonewbeu')),
         // 풀버전/스포츠/경제 코너 제외, 대괄호 표기 헤이 고뉴브만.
         filter: (title) => /\[헤이 고뉴브\]/.test(title)
@@ -425,6 +426,9 @@ async function playEpisodeAt(sourceId, index) {
         return;
     }
 
+    // 다른 회차로 넘어가기 전에 지금까지 듣던 회차 위치를 저장(이어듣기 정확도)
+    saveCurrentProgress();
+
     state.playingSourceId = sourceId;
     state.playingIndex = index;
     updateRowStates();
@@ -590,6 +594,20 @@ function saveProgress(episode, currentTime, duration) {
     }
 }
 
+/**
+ * 현재 재생 중인 회차의 위치를 "즉시" 저장한다.
+ * 5초 주기 저장과 별개로 일시정지·백그라운드 진입·앱 종료 등 정지 직전 시점에 호출하여
+ * 정확히 그 지점부터 이어듣기가 되도록 한다.
+ */
+function saveCurrentProgress() {
+    const playing = getPlayingEpisode();
+    const { currentTime, duration } = UI.audioPlayer;
+    if (playing && duration && currentTime > 0) {
+        saveProgress(playing, currentTime, duration);
+        state.lastSaveTime = Date.now();
+    }
+}
+
 function getProgress(episode) {
     const key = getProgressKey(episode);
     if (!key) return null;
@@ -750,12 +768,23 @@ function setupEventListeners() {
     UI.audioPlayer.addEventListener('timeupdate', handleAudioTimeUpdate);
     // 미디어세션/잠금화면 등 외부 조작으로 재생 상태가 바뀌어도 목록 UI를 동기화
     UI.audioPlayer.addEventListener('play', updateRowStates);
-    UI.audioPlayer.addEventListener('pause', updateRowStates);
+    // 일시정지 순간 위치를 즉시 저장 + 목록 UI 동기화
+    UI.audioPlayer.addEventListener('pause', () => {
+        saveCurrentProgress();
+        updateRowStates();
+    });
     UI.audioPlayer.addEventListener('ended', () => {
         handleAudioEnded().catch((err) => console.error('Handle audio ended error:', err));
     });
 
     UI.progressBar.addEventListener('click', handleProgressBarClick);
+
+    // 백그라운드 진입(다른 앱/탭 전환) 시점에 즉시 저장 — 모바일에서 가장 신뢰할 수 있는 신호
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) saveCurrentProgress();
+    });
+    // 앱/탭 종료 직전 저장 (pagehide가 beforeunload보다 모바일에서 신뢰도 높음)
+    window.addEventListener('pagehide', saveCurrentProgress);
 }
 
 async function registerServiceWorker() {

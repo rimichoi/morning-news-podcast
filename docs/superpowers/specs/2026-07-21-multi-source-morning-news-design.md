@@ -18,7 +18,7 @@
 
 - 시선집중: `https://miniapi.imbc.com/podcast/itemlist?bid=1000674100000100000&page=1&pagesize=50&callback=__itemlist`
 - 아침&뉴스: `https://miniapi.imbc.com/podcast/itemlist?bid=1003824100000100000&page=1&pagesize=10&callback=__itemlist`
-- 헤이 고뉴브: `https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=20&sortNew=1`
+- 헤이 고뉴브: `https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=40&sortNew=1` (40건 중 '헤이 고뉴브' 필터 시 약 10건)
 
 ## 핵심 사실 (조사 결과)
 
