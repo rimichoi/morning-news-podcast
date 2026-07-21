@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cbs-podcast-v7';
+const CACHE_NAME = 'morning-news-v8';
 const urlsToCache = [
     './index.html',
     './manifest.json',
@@ -6,6 +6,9 @@ const urlsToCache = [
     './styles.css',
     './app.js'
 ];
+
+// 목록 API 호스트 (네트워크 우선, 실패 시 캐시)
+const API_HOSTS = ['miniapi.imbc.com', 'apis.sbs.co.kr'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -15,52 +18,38 @@ self.addEventListener('install', (event) => {
     );
 });
 
+function networkFirst(request) {
+    return fetch(request)
+        .then((response) => {
+            // 유효한 기본/CORS 응답만 캐시 (opaque/부분응답 제외)
+            if (response && response.status === 200 &&
+                (response.type === 'basic' || response.type === 'cors')) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            }
+            return response;
+        })
+        .catch(() => caches.match(request));
+}
+
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
+    const isSameOrigin = url.origin === self.location.origin;
 
-    // API 요청 (뉴스 목록) 처리: Network First (네트워크 우선, 실패 시 캐시)
-    if (url.href.includes('cbs.co.kr/board/list')) {
-        event.respondWith(
-            fetch(event.request)
-                .then((response) => {
-                    // 유효한 응답이면 캐시에 저장 후 반환
-                    if (!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
-                        return response;
-                    }
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
-                    return response;
-                })
-                .catch(() => {
-                    // 네트워크 실패 시 캐시에서 조회
-                    return caches.match(event.request);
-                })
-        );
+    // 목록 API: 네트워크 우선 + 캐시 폴백
+    if (API_HOSTS.includes(url.hostname)) {
+        event.respondWith(networkFirst(event.request));
         return;
     }
 
-    // 앱 리소스 처리: Network First with Cache Fallback
-    // (앱 업데이트를 즉시 반영하면서 오프라인도 지원)
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                // 응답이 있으면 캐시 업데이트
-                if (response && response.status === 200) {
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
-                }
-                return response;
-            })
-            .catch(() => {
-                // 네트워크 실패 시 캐시에서 조회
-                return caches.match(event.request);
-            })
-    );
+    // 앱 리소스(동일 출처): 네트워크 우선 + 캐시 폴백
+    if (isSameOrigin) {
+        event.respondWith(networkFirst(event.request));
+        return;
+    }
+
+    // 그 외(오디오 mp3, 외부 이미지 등)는 가로채지 않고 브라우저에 위임.
+    // 오디오 range 요청(206)을 SW가 다루면 스트리밍이 깨질 수 있으므로 통과시킨다.
 });
 
 // 오래된 캐시 정리 및 즉시 제어권 획득
@@ -75,9 +64,6 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
-        }).then(() => {
-            // 모든 클라이언트에 대해 즉시 제어권 획득
-            return self.clients.claim();
-        })
+        }).then(() => self.clients.claim())
     );
 });

@@ -67,6 +67,40 @@ body {
     background: rgba(255, 255, 255, 0.1);
 }
 
+/* Tabs (Source Switcher) */
+.tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    background: #e9eef5;
+    padding: 4px;
+    border-radius: 12px;
+}
+
+.tab {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #555;
+    padding: 10px 8px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.tab:active {
+    transform: scale(0.98);
+}
+
+.tab.active {
+    background: #2f66ba;
+    color: white;
+    box-shadow: 0 2px 6px rgba(47, 102, 186, 0.3);
+}
+
 /* Status Messages */
 .loading {
     text-align: center;
@@ -116,10 +150,20 @@ body {
 }
 
 .podcast-date {
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
+    font-size: 15px;
+    font-weight: 700;
+    color: #2f66ba;
     margin-bottom: 4px;
+}
+
+.podcast-title {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #333;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .episode-progress-bar {

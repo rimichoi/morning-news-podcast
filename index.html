@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#2f66ba">
-    <meta name="description" content="CBS 아침뉴스 팟캐스트 플레이어">
+    <meta name="description" content="아침뉴스 팟캐스트 플레이어">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="cbs_icon.png" type="image/png">
     <link rel="apple-touch-icon" href="cbs_icon.png">
@@ -13,22 +13,24 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="CBS 아침뉴스">
+    <meta name="apple-mobile-web-app-title" content="아침뉴스">
 
-    <title>CBS 아침뉴스 팟캐스트</title>
+    <title>아침뉴스 팟캐스트</title>
 
     <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="header">
-    <h1>CBS 아침뉴스</h1>
+    <h1>아침뉴스</h1>
     <div class="header-controls">
-        <span>월-금 07:00</span>
+        <span>매일 아침 다시듣기</span>
         <span class="speed-indicator" id="speedBtn">1.25x</span>
         <button class="refresh-btn" id="refreshBtn">새로고침</button>
     </div>
 </div>
+
+<nav id="tabs" class="tabs" role="tablist"></nav>
 
 <div id="error" class="error"></div>
 <div id="loading" class="loading active">

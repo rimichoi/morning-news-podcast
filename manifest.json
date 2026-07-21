@@ -1,7 +1,7 @@
 {
-  "name": "CBS 아침뉴스 팟캐스트",
-  "short_name": "CBS 아침뉴스",
-  "description": "CBS 아침뉴스 팟캐스트 플레이어",
+  "name": "아침뉴스 팟캐스트",
+  "short_name": "아침뉴스",
+  "description": "아침뉴스 팟캐스트 플레이어",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#2f66ba",
@@ -10,7 +10,7 @@
   "icons": [
     {
       "src": "cbs_icon.png",
-      "sizes": "512X512",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
