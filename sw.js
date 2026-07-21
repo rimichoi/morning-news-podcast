@@ -1,8 +1,11 @@
-const CACHE_NAME = 'morning-news-v9';
+const CACHE_NAME = 'morning-news-v10';
 const urlsToCache = [
     './index.html',
     './manifest.json',
     './icon.png',
+    './icon-192.png',
+    './icon-maskable.png',
+    './icon-maskable-192.png',
     './styles.css',
     './js/app.js',
     './js/config.js',
