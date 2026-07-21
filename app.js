@@ -31,10 +31,15 @@
  * @property {function(string): boolean} [filter] - title 기준 노출 필터
  */
 
+/** id 필드를 안전하게 문자열화. 값이 없으면 null (진행률 키 오염 방지). */
+function safeId(value) {
+    return value == null || value === '' ? null : String(value);
+}
+
 /** MBC podcast API 응답 1건을 Episode로 정규화 */
 function normalizeMbcItem(item, sourceId) {
     return {
-        id: String(item.PodCastItemIdx),
+        id: safeId(item.PodCastItemIdx),
         title: item.ContentTitle || '',
         dateISO: mbcDateToISO(item.BroadDate),
         audioUrl: toHttps(item.EncloserURL),
@@ -46,7 +51,7 @@ function normalizeMbcItem(item, sourceId) {
 /** SBS radio-api 응답 1건을 Episode로 정규화 */
 function normalizeSbsItem(item, sourceId) {
     return {
-        id: String(item.CLIP_ID || item._id),
+        id: safeId(item.CLIP_ID || item._id),
         title: item.CON_TITLE || '',
         dateISO: sbsDateToISO(item.BROAD_DATE),
         audioUrl: toHttps(item.S3_FILE_URL || item.UPLOAD_URL || item.FILE_URL),
@@ -126,18 +131,38 @@ const ICONS = {
 // --- Application State ------------------------------------------------------
 
 const state = {
+    // 사용자가 보고 있는 탭(브라우징)
     activeSourceId: SOURCES[0].id,
     /** @type {Object<string, Episode[]>} 소스별 목록 캐시 */
     cache: {},
-    currentIndex: -1,
+    // 실제 재생 중인 회차(브라우징 탭과 독립적으로 추적).
+    // 탭을 바꿔도 재생·진행률 저장·이전/다음은 이 값을 기준으로 동작한다.
+    playingSourceId: null,
+    playingIndex: -1,
     currentSpeed: 1.25,
     lastSaveTime: 0,
-    isLoading: false
+    /** @type {Object<string, boolean>} 소스별 로딩 진행 여부 (탭 빠른 전환 race 방지) */
+    inFlight: {},
+    // 빠르게 회차를 전환할 때 이전 loadedmetadata seek가 새 소스에 적용되는 것을 방지
+    loadToken: 0
 };
 
-/** 현재 활성 소스의 Episode 목록 */
+/** 현재 활성(브라우징) 소스의 Episode 목록 */
 function getEpisodes() {
     return state.cache[state.activeSourceId] || [];
+}
+
+/** 재생 중인 소스의 Episode 목록 */
+function getPlayingList() {
+    return state.playingSourceId ? state.cache[state.playingSourceId] || [] : [];
+}
+
+/** 재생 중인 Episode */
+function getPlayingEpisode() {
+    const list = getPlayingList();
+    return state.playingIndex >= 0 && state.playingIndex < list.length
+        ? list[state.playingIndex]
+        : null;
 }
 
 // --- DOM Elements Cache -----------------------------------------------------
@@ -227,47 +252,57 @@ async function fetchEpisodes(source) {
 
 /**
  * 활성 소스 목록 로드.
+ * 탭을 빠르게 전환해도 각 소스는 자신의 캐시에 저장하고, UI 갱신은 로드 완료 시점에
+ * 여전히 그 소스가 활성 탭일 때만 반영한다(다른 탭으로 넘어갔으면 조용히 캐시만 채움).
  * @param {boolean} [forceReload] 캐시 무시하고 강제 갱신
  */
 async function loadPodcasts(forceReload = false) {
-    if (state.isLoading) return;
-
     const source = getSource(state.activeSourceId);
     if (!source) return;
 
     // 캐시가 있으면 즉시 렌더 (강제 갱신 아닐 때)
-    if (!forceReload && state.cache[state.activeSourceId]) {
+    if (!forceReload && state.cache[source.id]) {
         renderPodcasts();
         return;
     }
 
-    state.isLoading = true;
+    // 같은 소스의 중복 로드만 방지 (다른 소스는 동시에 로드 가능)
+    if (state.inFlight[source.id]) return;
+    state.inFlight[source.id] = true;
+
+    const isActive = () => state.activeSourceId === source.id;
+
     UI.loading.classList.add('active');
     UI.error.style.display = 'none';
     UI.podcastList.style.opacity = '0.5';
 
     try {
         const episodes = await fetchEpisodes(source);
-        state.cache[source.id] = episodes;
+        state.cache[source.id] = episodes; // 활성 여부와 무관하게 캐시에 저장
+
+        if (!isActive()) return; // 그 사이 다른 탭으로 이동 → 캐시만 채우고 UI는 건드리지 않음
 
         if (episodes.length === 0) {
             UI.podcastList.innerHTML = '';
             showError('재생 가능한 방송이 없습니다.');
-            return;
+        } else {
+            renderPodcasts();
         }
-
-        renderPodcasts();
     } catch (error) {
         console.error('Load podcasts error:', error);
-        if (!navigator.onLine) {
-            showError('인터넷 연결을 확인해주세요. (오프라인)');
-        } else {
-            showError(`방송을 불러오는데 실패했습니다: ${error.message}`);
+        if (isActive()) {
+            if (!navigator.onLine) {
+                showError('인터넷 연결을 확인해주세요. (오프라인)');
+            } else {
+                showError(`방송을 불러오는데 실패했습니다: ${error.message}`);
+            }
         }
     } finally {
-        state.isLoading = false;
-        UI.loading.classList.remove('active');
-        UI.podcastList.style.opacity = '1';
+        state.inFlight[source.id] = false;
+        if (isActive()) {
+            UI.loading.classList.remove('active');
+            UI.podcastList.style.opacity = '1';
+        }
     }
 }
 
@@ -287,14 +322,18 @@ function renderTabs() {
 function switchSource(sourceId) {
     if (sourceId === state.activeSourceId || !getSource(sourceId)) return;
 
+    // 탭만 전환한다. 재생은 playingSourceId/playingIndex 기준으로 계속 유지되고,
+    // 목록 하이라이트는 renderPodcasts가 재생 소스와 활성 탭이 같을 때만 표시한다.
     state.activeSourceId = sourceId;
-    // 소스가 바뀌면 현재 재생 인덱스는 다른 목록 기준이 되므로 목록 하이라이트만 초기화.
-    // (재생 자체는 유지 — 하단 플레이어로 계속 청취 가능)
-    state.currentIndex = -1;
 
     renderTabs();
     UI.error.style.display = 'none';
     loadPodcasts().catch((err) => console.error('Switch source error:', err));
+}
+
+/** 활성 탭이 재생 중인 소스인지 */
+function isActiveSourcePlaying() {
+    return state.playingSourceId === state.activeSourceId;
 }
 
 function renderPodcasts() {
@@ -305,15 +344,9 @@ function renderPodcasts() {
         const li = document.createElement('li');
         li.className = 'podcast-item';
         li.dataset.index = String(index);
-        if (index === state.currentIndex) li.classList.add('playing');
 
         const progressPercent = getProgressPercent(episode);
         const progress = getProgress(episode);
-
-        const isCurrent = index === state.currentIndex;
-        const isPlaying = isCurrent && !UI.audioPlayer.paused;
-        const btnContent = isPlaying ? ICONS.PAUSE : ICONS.PLAY;
-        const btnClass = isPlaying ? 'play-button playing' : 'play-button';
 
         let progressHTML = '';
         if (progressPercent > 0 && progress) {
@@ -327,45 +360,78 @@ function renderPodcasts() {
 
         li.innerHTML = `
             <div class="podcast-info">
-                <div class="podcast-date">${formatDate(episode.dateISO)}</div>
+                <div class="podcast-date">${escapeHtml(formatDate(episode.dateISO))}</div>
                 <div class="podcast-title">${escapeHtml(episode.title)}</div>
                 ${progressHTML}
             </div>
-            <button class="${btnClass}" data-action="play" data-index="${index}" aria-label="${isPlaying ? '일시정지' : '재생'}">
-                ${btnContent}
+            <button class="play-button" data-action="play" data-index="${index}" aria-label="재생">
+                ${ICONS.PLAY}
             </button>
         `;
 
         UI.podcastList.appendChild(li);
     });
+
+    updateRowStates();
 }
 
+/** 렌더된 목록 행들의 재생 하이라이트·버튼 아이콘을 현재 재생 상태에 맞춰 동기화 */
+function updateRowStates() {
+    const items = UI.podcastList.children;
+    const activePlaying = isActiveSourcePlaying();
+
+    for (let i = 0; i < items.length; i++) {
+        const li = items[i];
+        const btn = li.querySelector('.play-button');
+        const isThis = activePlaying && i === state.playingIndex;
+        const showPause = isThis && !UI.audioPlayer.paused;
+
+        li.classList.toggle('playing', isThis);
+        if (btn) {
+            btn.innerHTML = showPause ? ICONS.PAUSE : ICONS.PLAY;
+            btn.classList.toggle('playing', showPause);
+            btn.setAttribute('aria-label', showPause ? '일시정지' : '재생');
+        }
+    }
+}
+
+/** 목록에서 클릭 시 호출. index는 활성(브라우징) 소스 목록 기준. */
 async function playPodcast(index) {
     if (!isValidIndex(index)) {
         console.warn('Invalid episode index:', index);
         return;
     }
+    await playEpisodeAt(state.activeSourceId, index);
+}
 
-    if (state.currentIndex === index) {
-        await togglePlayback(index);
+/**
+ * 특정 소스의 index 회차를 재생. 이전/다음·자동 다음재생도 재생 소스를 기준으로 이 함수를 호출한다.
+ * @param {string} sourceId
+ * @param {number} index
+ */
+async function playEpisodeAt(sourceId, index) {
+    const list = state.cache[sourceId] || [];
+    if (index < 0 || index >= list.length) return;
+
+    // 같은 회차를 다시 누르면 재생/일시정지 토글
+    if (sourceId === state.playingSourceId && index === state.playingIndex) {
+        await togglePlayback();
         return;
     }
 
-    const prevIndex = state.currentIndex;
-    state.currentIndex = index;
-    const episode = getEpisodes()[index];
-
-    updateItemUI(prevIndex, false);
-    updateItemUI(index, true);
-
+    const episode = list[index];
     if (!episode.audioUrl) {
         showError('오디오 URL이 없습니다.');
-        updateItemUI(index, false);
         return;
     }
 
+    state.playingSourceId = sourceId;
+    state.playingIndex = index;
+    updateRowStates();
+
     // 이어듣기: src 설정 직후 currentTime을 세팅하면 메타데이터 로드 전이라 무시된다.
-    // loadedmetadata 이벤트 시점에 1회성으로 seek 한다.
+    // loadedmetadata 시점에 1회성으로 seek 하고, 그 사이 회차가 바뀌면(loadToken) 적용하지 않는다.
+    const token = ++state.loadToken;
     const savedProgress = getProgress(episode);
     const resumeTime =
         savedProgress && savedProgress.currentTime > CONFIG.MIN_RESUME_TIME
@@ -374,7 +440,7 @@ async function playPodcast(index) {
 
     if (resumeTime > 0) {
         const seekOnce = () => {
-            // duration 범위 안에서만 seek (끝부분 근처면 그대로 둠)
+            if (token !== state.loadToken) return; // 그 사이 다른 회차로 전환됨
             if (UI.audioPlayer.duration && resumeTime < UI.audioPlayer.duration - 1) {
                 UI.audioPlayer.currentTime = resumeTime;
             }
@@ -389,9 +455,11 @@ async function playPodcast(index) {
         UI.audioPlayer.playbackRate = state.currentSpeed;
         showPlayerControls(episode);
     } catch (error) {
+        // 빠른 전환으로 play()가 새 load에 의해 중단되는 것은 정상 동작이므로 조용히 무시
+        if (error.name === 'AbortError') return;
         console.error('Play error:', error);
         showError(`재생할 수 없습니다: ${error.message}`);
-        updateItemUI(index, false);
+        updateRowStates();
     }
 }
 
@@ -407,7 +475,7 @@ function updateMediaSession(episode) {
 
     const source = getSource(episode.sourceId);
     const artwork = episode.artwork
-        ? [{ src: episode.artwork, sizes: '512x512', type: 'image/jpeg' }]
+        ? [{ src: episode.artwork, sizes: '512x512', type: guessImageMime(episode.artwork) }]
         : [{ src: 'cbs_icon.png', sizes: '512x512', type: 'image/png' }];
 
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -445,45 +513,31 @@ function toHttps(url) {
     return url.startsWith('http:') ? url.replace('http:', 'https:') : url;
 }
 
+/** 이미지 URL 확장자로 MIME 타입 추정 (MediaSession artwork용) */
+function guessImageMime(url) {
+    const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'gif') return 'image/gif';
+    return 'image/jpeg';
+}
+
 function isValidIndex(index) {
     return index >= 0 && index < getEpisodes().length;
 }
 
-async function togglePlayback(index) {
+async function togglePlayback() {
     try {
         if (UI.audioPlayer.paused) {
             await UI.audioPlayer.play();
-            updateItemUI(index, true);
         } else {
             UI.audioPlayer.pause();
-            updateItemUI(index, false);
         }
+        updateRowStates();
     } catch (error) {
+        if (error.name === 'AbortError') return;
         console.error('Toggle playback error:', error);
         showError(`재생 오류: ${error.message}`);
-    }
-}
-
-function updateItemUI(index, isPlaying) {
-    if (index === -1) return;
-
-    const items = UI.podcastList.children;
-    if (index >= items.length) return;
-
-    const li = items[index];
-    const btn = li.querySelector('.play-button');
-
-    if (isPlaying || index === state.currentIndex) {
-        li.classList.add('playing');
-    } else {
-        li.classList.remove('playing');
-    }
-
-    if (btn) {
-        btn.innerHTML = isPlaying ? ICONS.PAUSE : ICONS.PLAY;
-        btn.setAttribute('aria-label', isPlaying ? '일시정지' : '재생');
-        if (isPlaying) btn.classList.add('playing');
-        else btn.classList.remove('playing');
     }
 }
 
@@ -497,18 +551,20 @@ function toggleSpeed() {
 }
 
 async function playPrevious() {
-    // 목록은 최신순(내림차순). 이전(=더 과거) 회차 = index + 1
-    const nextIndex = state.currentIndex + 1;
-    if (isValidIndex(nextIndex)) {
-        await playPodcast(nextIndex);
+    // 재생 중인 소스 목록 기준. 목록은 최신순(내림차순)이라 이전(=더 과거) 회차 = index + 1
+    if (state.playingSourceId == null) return;
+    const target = state.playingIndex + 1;
+    if (target >= 0 && target < getPlayingList().length) {
+        await playEpisodeAt(state.playingSourceId, target);
     }
 }
 
 async function playNext() {
     // 다음(=더 최신) 회차 = index - 1
-    const nextIndex = state.currentIndex - 1;
-    if (isValidIndex(nextIndex)) {
-        await playPodcast(nextIndex);
+    if (state.playingSourceId == null) return;
+    const target = state.playingIndex - 1;
+    if (target >= 0 && target < getPlayingList().length) {
+        await playEpisodeAt(state.playingSourceId, target);
     }
 }
 
@@ -637,31 +693,29 @@ function handleAudioTimeUpdate() {
     }
 
     const now = Date.now();
-    if (isValidIndex(state.currentIndex) && now - state.lastSaveTime > CONFIG.PROGRESS_SAVE_INTERVAL) {
-        saveProgress(
-            getEpisodes()[state.currentIndex],
-            UI.audioPlayer.currentTime,
-            UI.audioPlayer.duration
-        );
+    const playing = getPlayingEpisode();
+    if (playing && now - state.lastSaveTime > CONFIG.PROGRESS_SAVE_INTERVAL) {
+        saveProgress(playing, UI.audioPlayer.currentTime, UI.audioPlayer.duration);
         state.lastSaveTime = now;
     }
 }
 
 async function handleAudioEnded() {
     try {
-        if (isValidIndex(state.currentIndex)) {
-            clearProgress(getEpisodes()[state.currentIndex]);
+        const finished = getPlayingEpisode();
+        if (finished) {
+            clearProgress(finished);
         }
 
-        // 자동 다음재생(더 최신 회차). 없으면 정지.
-        const nextIndex = state.currentIndex - 1;
-        if (isValidIndex(nextIndex)) {
-            await playPodcast(nextIndex);
+        // 자동 다음재생(재생 소스의 더 최신 회차). 없으면 정지.
+        const nextIndex = state.playingIndex - 1;
+        if (state.playingSourceId != null && nextIndex >= 0 && nextIndex < getPlayingList().length) {
+            await playEpisodeAt(state.playingSourceId, nextIndex);
         } else {
-            updateItemUI(state.currentIndex, false);
-            UI.podcastList.children[state.currentIndex]?.classList.remove('playing');
+            updateRowStates();
         }
 
+        // 목록의 진행률 바 갱신
         renderPodcasts();
     } catch (error) {
         console.error('Audio ended error:', error);
@@ -694,6 +748,9 @@ function setupEventListeners() {
     });
 
     UI.audioPlayer.addEventListener('timeupdate', handleAudioTimeUpdate);
+    // 미디어세션/잠금화면 등 외부 조작으로 재생 상태가 바뀌어도 목록 UI를 동기화
+    UI.audioPlayer.addEventListener('play', updateRowStates);
+    UI.audioPlayer.addEventListener('pause', updateRowStates);
     UI.audioPlayer.addEventListener('ended', () => {
         handleAudioEnded().catch((err) => console.error('Handle audio ended error:', err));
     });

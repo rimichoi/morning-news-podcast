@@ -69,13 +69,21 @@ Episode = {
 
 ```
 state = {
-  activeSourceId,
+  activeSourceId,                     // 사용자가 보고 있는 탭(브라우징)
   cache: { [sourceId]: Episode[] },   // 소스별 목록 캐시
-  currentIndex, currentSpeed, lastSaveTime, isLoading
+  playingSourceId, playingIndex,      // 실제 재생 중인 회차(탭과 독립 추적)
+  currentSpeed, lastSaveTime,
+  inFlight: { [sourceId]: bool },     // 소스별 로딩 플래그(탭 빠른 전환 race 방지)
+  loadToken                           // rapid-switch 시 stale loadedmetadata seek 방지
 }
 ```
 
 - 탭 전환 시 캐시에 있으면 재요청 없이 렌더, 없으면 로드. 새로고침 버튼은 활성 소스 강제 갱신.
+- **재생은 브라우징 탭과 분리**해 `playingSourceId`/`playingIndex`로 추적한다. 탭을 바꿔도 재생이
+  유지되고, 진행률 저장·이전/다음·자동 다음재생은 모두 재생 소스 목록을 기준으로 동작한다. 목록
+  하이라이트는 활성 탭이 재생 소스와 같을 때만 표시한다.
+- `loadPodcasts`는 결과를 항상 `cache[source.id]`에 저장하고, UI 갱신은 완료 시점에 그 소스가 여전히
+  활성 탭일 때만 반영한다(탭을 빠르게 전환해도 빈 목록이 남지 않음).
 
 ## UI
 

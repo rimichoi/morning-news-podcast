@@ -1,61 +1,69 @@
-# CBS 아침뉴스 팟캐스트 (Unofficial PWA)
+# 아침뉴스 팟캐스트 (Unofficial PWA)
 
-매일 아침 CBS 표준FM에서 방송되는 'CBS 아침뉴스' 다시듣기를 편리하게 제공하는 모바일 웹앱입니다.
-공식 앱 없이도 브라우저에서 가볍게 청취할 수 있으며, **PWA(Progressive Web App)** 기술을 적용하여 앱처럼 홈 화면에 설치해 사용할 수 있습니다.
+매일 아침 라디오 시사·뉴스 프로그램 다시듣기를 한곳에서 편리하게 청취하는 모바일 웹앱입니다.
+공식 앱 없이도 브라우저에서 가볍게 들을 수 있으며, **PWA(Progressive Web App)** 기술을 적용하여 앱처럼 홈 화면에 설치해 사용할 수 있습니다.
+
+> 기존 'CBS 아침뉴스' 다시듣기가 종료됨에 따라, 아래 3개 방송으로 대체했습니다.
+
+## 📻 제공 방송 (상단 탭으로 전환)
+
+| 탭 | 프로그램 | 제공 | 비고 |
+|----|----------|------|------|
+| 시선집중 | 김종배의 시선집중 — 1부 [JB TIMES] | MBC 표준FM | 전체 피드 중 1부만 필터링 |
+| 아침&뉴스 | 아침& 뉴스, 류수민입니다 | MBC 표준FM | 전체 회차 |
+| 헤이 고뉴브 | 고현준의 뉴스 브리핑 — 헤이 고뉴브 | SBS 러브FM | 전체 피드 중 '헤이 고뉴브' 코너만 필터링 |
 
 ## ✨ 주요 기능
 
-- **최신 뉴스 자동 업데이트**: CBS 공식 게시판 데이터를 실시간으로 가져와 목록을 보여줍니다.
-- **연속 재생**: 현재 뉴스가 끝나면 자동으로 다음 날짜(과거)의 뉴스를 이어 재생합니다.
-- **배속 재생**: `1.0x` ~ `2.0x`까지 재생 속도를 자유롭게 조절하여 뉴스를 빠르게 청취할 수 있습니다.
-- **오프라인 모드**: 한 번 방문한 페이지와 뉴스 목록은 캐싱되어 인터넷이 불안정한 환경에서도 기본 UI가 로드됩니다.
-- **모바일 최적화**: iOS 및 Android 스타일을 고려한 깔끔한 UI와 터치 친화적인 컨트롤을 제공합니다.
-- **https 지원**: 혼합 콘텐츠(Mixed Content) 문제를 방지하기 위해 오디오 URL을 자동으로 HTTPS로 변환합니다.
+- **3개 방송 전환**: 상단 탭으로 방송을 전환하며 각 방송의 최신 다시듣기 목록을 봅니다.
+- **최신 자동 업데이트**: 각 방송사 팟캐스트 API에서 목록을 실시간으로 가져옵니다.
+- **이어듣기**: 재생 위치를 방송·회차별로 저장하여 다시 접속해도 이어서 재생합니다.
+- **연속 재생**: 현재 회차가 끝나면 자동으로 다음(더 최신) 회차를 이어 재생합니다.
+- **배속 재생**: `1.0x` ~ `2.0x`까지 재생 속도를 조절할 수 있습니다.
+- **미디어세션**: 잠금화면/알림에서 재생·일시정지·이전·다음 제어를 지원합니다.
+- **오프라인 모드**: 앱 리소스와 SBS 목록은 캐싱됩니다. (MBC는 JSONP 특성상 오프라인 목록 캐싱 미지원)
+- **https 지원**: 혼합 콘텐츠(Mixed Content) 방지를 위해 오디오 URL을 자동으로 HTTPS로 변환합니다.
 
 ## 🛠 기술 스택
 
 - **Core**: HTML5, CSS3, Vanilla JavaScript (ES6+)
-- **PWA**: Service Worker, Web App Manifest (Offline support, Add to Home Screen)
+- **PWA**: Service Worker, Web App Manifest (오프라인 지원, 홈 화면 설치)
 - **Architecture**:
   - `index.html`: 구조 (Markup)
   - `styles.css`: 디자인 (Style)
-  - `app.js`: 로직 (Logic)
+  - `app.js`: 로직 (소스 레지스트리 + 정규화 계층, JSONP/fetch 로더, 탭/재생 상태)
   - `sw.js`: 캐싱 및 오프라인 지원 (Service Worker)
+
+### 멀티소스 처리
+방송사마다 API 방식과 스키마가 달라 `SOURCES` 레지스트리로 추상화합니다.
+- MBC(`miniapi.imbc.com`): CORS 미허용 → **JSONP**(`<script>` 주입, 콜백 `__itemlist`)로 로드
+- SBS(`apis.sbs.co.kr`): CORS 허용(`*`) → **fetch(JSON)**으로 로드
+- 각 소스의 `parse()`가 원본을 공통 `Episode { id, title, dateISO, audioUrl, artwork, sourceId }`로 정규화
 
 ## 🚀 사용 방법
 
 ### 웹에서 바로 사용하기
-GitHub Pages 등을 통해 배포된 URL로 접속합니다.
-(배포 후 본인의 URL로 수정해서 사용하세요: `https://[Your-GitHub-ID].github.io/cbs-morning-news`)
+GitHub Pages 등으로 배포된 URL로 접속합니다.
 
 ### 로컬에서 실행하기
 
-1. 이 저장소를 클론합니다.
-   ```bash
-   git clone https://github.com/your-username/cbs-morning-news.git
-   ```
+1. 저장소를 클론합니다.
 2. 폴더로 이동합니다.
-   ```bash
-   cd cbs-morning-news
-   ```
-3. 로컬 웹 서버를 실행합니다. (Service Worker 테스트를 위해 필요)
-   - **VS Code**: 'Live Server' 확장 프로그램 사용 (추천)
+3. 로컬 웹 서버를 실행합니다. (Service Worker 테스트에 필요)
    - **Python**: `python -m http.server`
    - **Node.js**: `npx http-server`
 4. 브라우저에서 `http://localhost:포트번호`로 접속합니다.
 
 ## 📱 앱 설치 방법 (PWA)
 
-웹사이트에 접속 후 브라우저 기능을 이용해 설치할 수 있습니다.
-
-- **iPhone (Safari)**: 하단 '공유' 버튼 클릭 → '홈 화면에 추가' 선택
-- **Android (Chrome)**: 상단 메뉴(⋮) 클릭 → '앱 설치' 또는 '홈 화면에 추가' 선택
+- **iPhone (Safari)**: 하단 '공유' 버튼 → '홈 화면에 추가'
+- **Android (Chrome)**: 상단 메뉴(⋮) → '앱 설치' 또는 '홈 화면에 추가'
 
 ## ⚠️ 저작권 및 고지사항
 
 - 본 프로젝트는 개인적인 학습 및 편의를 위해 제작된 비공식 오픈소스 프로젝트입니다.
-- 앱에서 재생되는 모든 오디오 콘텐츠의 저작권은 **[CBS i](https://www.cbs.co.kr/)**에 있습니다.
-- 제공되는 데이터는 CBS 공식 홈페이지의 공개된 게시판 정보를 기반으로 합니다.
+- 재생되는 모든 오디오 콘텐츠의 저작권은 각 방송사(**[MBC](https://www.imbc.com/)**, **[SBS](https://www.sbs.co.kr/)**)에 있습니다.
+- 제공 데이터는 각 방송사가 공개한 팟캐스트 API 정보를 기반으로 합니다.
 
 ## 📝 라이선스
 

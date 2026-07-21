@@ -7,7 +7,9 @@ const urlsToCache = [
     './app.js'
 ];
 
-// 목록 API 호스트 (네트워크 우선, 실패 시 캐시)
+// 목록 API 호스트 (네트워크 우선, 실패 시 캐시).
+// 주의: MBC(miniapi.imbc.com)는 JSONP(<script>, no-cors)라 응답이 opaque로 들어와
+// 캐시에 저장되지 않는다 → 오프라인 폴백은 실제로는 CORS를 허용하는 SBS(apis.sbs.co.kr)에만 적용된다.
 const API_HOSTS = ['miniapi.imbc.com', 'apis.sbs.co.kr'];
 
 self.addEventListener('install', (event) => {
