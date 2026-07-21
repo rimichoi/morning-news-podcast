@@ -1,10 +1,17 @@
-const CACHE_NAME = 'morning-news-v8';
+const CACHE_NAME = 'morning-news-v9';
 const urlsToCache = [
     './index.html',
     './manifest.json',
-    './cbs_icon.png',
+    './icon.png',
     './styles.css',
-    './app.js'
+    './js/app.js',
+    './js/config.js',
+    './js/util.js',
+    './js/dom.js',
+    './js/sources.js',
+    './js/store.js',
+    './js/ui.js',
+    './js/player.js'
 ];
 
 // 목록 API 호스트 (네트워크 우선, 실패 시 캐시).
