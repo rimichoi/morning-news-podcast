@@ -88,16 +88,6 @@ export function getProgressPercent(episode) {
     return 0;
 }
 
-export function clearProgress(episode) {
-    const key = getProgressKey(episode);
-    if (!key) return;
-    try {
-        localStorage.removeItem(key);
-    } catch (error) {
-        console.error('Clear progress error:', error);
-    }
-}
-
 /**
  * 현재 재생 중인 회차의 위치를 "즉시" 저장한다.
  * 5초 주기 저장과 별개로 일시정지·백그라운드 진입·앱 종료 등 정지 직전 시점에 호출하여

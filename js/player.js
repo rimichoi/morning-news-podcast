@@ -5,7 +5,8 @@ import {
     getPlayingList,
     getPlayingEpisode,
     getProgress,
-    clearProgress,
+    saveProgress,
+    isFinished,
     saveCurrentProgress
 } from './store.js';
 import { getSource } from './sources.js';
@@ -13,7 +14,6 @@ import { UI } from './dom.js';
 import { CONFIG } from './config.js';
 import { clamp, guessImageMime, formatDate } from './util.js';
 import {
-    renderPodcasts,
     updateRowStates,
     showPlayerControls,
     showError,
@@ -46,6 +46,9 @@ export async function playEpisodeAt(sourceId, index) {
 
     // 같은 회차를 다시 누르면 재생/일시정지 토글
     if (sourceId === state.playingSourceId && index === state.playingIndex) {
+        if (UI.audioPlayer.paused && isFinished(getProgress(list[index]))) {
+            UI.audioPlayer.currentTime = 0;
+        }
         await togglePlayback();
         return;
     }
@@ -73,7 +76,7 @@ export async function playEpisodeAt(sourceId, index) {
     const token = ++state.loadToken;
     const savedProgress = getProgress(episode);
     const resumeTime =
-        savedProgress && savedProgress.currentTime > CONFIG.MIN_RESUME_TIME
+        savedProgress && savedProgress.currentTime > CONFIG.MIN_RESUME_TIME && !isFinished(savedProgress)
             ? savedProgress.currentTime
             : 0;
 
@@ -228,8 +231,9 @@ function handleAudioTimeUpdate() {
 async function handleAudioEnded() {
     try {
         const finished = getPlayingEpisode();
-        if (finished) {
-            clearProgress(finished);
+        if (finished && UI.audioPlayer.duration) {
+            saveProgress(finished, UI.audioPlayer.duration, UI.audioPlayer.duration);
+            updateRowProgress(finished);
         }
         // 자동 다음재생(재생 소스의 더 최신 회차). 없으면 정지.
         const nextIndex = state.playingIndex - 1;
@@ -238,7 +242,6 @@ async function handleAudioEnded() {
         } else {
             updateRowStates();
         }
-        renderPodcasts();
     } catch (error) {
         console.error('Audio ended error:', error);
     }
