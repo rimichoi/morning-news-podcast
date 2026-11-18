@@ -75,7 +75,6 @@ export function getProgress(episode) {
     }
 }
 
-/** 끝에서 FINISHED_REMAINING 초 이내까지 들었으면 다 들음 */
 export function isFinished(progress) {
     return !!progress && progress.duration > 0 && progress.duration - progress.currentTime <= CONFIG.FINISHED_REMAINING;
 }

@@ -67,7 +67,6 @@ function progressHTML(episode) {
     `;
 }
 
-/** 보고 있는 목록에 그 회차 행이 있으면 진행 표시만 다시 그린다 */
 export function updateRowProgress(episode) {
     if (!episode || episode.sourceId !== state.activeSourceId) return;
     const index = getEpisodes().findIndex((e) => e.id === episode.id);

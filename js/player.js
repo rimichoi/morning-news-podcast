@@ -22,7 +22,6 @@ import {
     updateRowProgress
 } from './ui.js';
 
-/** 재생 중인 회차 위치를 저장하고 목록의 그 행에도 바로 반영 */
 function saveAndShowProgress() {
     saveCurrentProgress();
     updateRowProgress(getPlayingEpisode());
