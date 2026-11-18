@@ -1,4 +1,4 @@
-const CACHE_NAME = 'morning-news-v10';
+const CACHE_NAME = 'morning-news-v11';
 const urlsToCache = [
     './index.html',
     './manifest.json',
@@ -25,7 +25,8 @@ const API_HOSTS = ['miniapi.imbc.com', 'apis.sbs.co.kr'];
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(urlsToCache))
+            // HTTP 캐시(GitHub Pages max-age=600)에 남은 이전 배포본을 새 캐시에 담지 않게 한다
+            .then((cache) => cache.addAll(urlsToCache.map((u) => new Request(u, { cache: 'reload' }))))
             .then(() => self.skipWaiting())
     );
 });

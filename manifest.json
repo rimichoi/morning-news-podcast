@@ -4,8 +4,8 @@
   "description": "아침뉴스 팟캐스트 플레이어",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#2f66ba",
-  "theme_color": "#2f66ba",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
   "orientation": "portrait",
   "icons": [
     {

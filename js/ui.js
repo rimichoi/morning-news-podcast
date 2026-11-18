@@ -97,7 +97,7 @@ export function updateRowStates() {
 export function showPlayerControls(episode) {
     UI.playerControls.classList.add('active');
     updatePlayerBar(episode);
-    document.body.style.paddingBottom = `${UI.playerControls.offsetHeight + 20}px`;
+    document.body.style.paddingBottom = `calc(${UI.playerControls.offsetHeight + 30}px + env(safe-area-inset-bottom))`;
 }
 
 export function updatePlayerBar(episode) {
