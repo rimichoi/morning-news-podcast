@@ -5,6 +5,7 @@ import {
     getEpisodes,
     getProgress,
     getProgressPercent,
+    isFinished,
     isActiveSourcePlaying
 } from './store.js';
 import { SOURCES, getSource } from './sources.js';
@@ -35,24 +36,11 @@ export function renderPodcasts() {
         li.className = 'podcast-item';
         li.dataset.index = String(index);
 
-        const progressPercent = getProgressPercent(episode);
-        const progress = getProgress(episode);
-
-        let progressHTML = '';
-        if (progressPercent > 0 && progress) {
-            progressHTML = `
-                <div class="episode-progress-bar">
-                    <div class="episode-progress-fill" style="width: ${progressPercent}%"></div>
-                </div>
-                <div class="episode-progress-text">${formatTime(progress.currentTime)} / ${formatTime(progress.duration)}</div>
-            `;
-        }
-
         li.innerHTML = `
             <div class="podcast-info">
                 <div class="podcast-date">${escapeHtml(formatDate(episode.dateISO))}</div>
                 <div class="podcast-title">${escapeHtml(episode.title)}</div>
-                ${progressHTML}
+                <div class="episode-progress">${progressHTML(episode)}</div>
             </div>
             <button class="play-button" data-action="play" data-index="${index}" aria-label="재생">
                 ${ICONS.PLAY}
@@ -63,6 +51,28 @@ export function renderPodcasts() {
     });
 
     updateRowStates();
+}
+
+function progressHTML(episode) {
+    const progress = getProgress(episode);
+    const percent = getProgressPercent(episode);
+    if (!progress || percent <= 0) return '';
+    const finished = isFinished(progress);
+    const text = finished ? '다 들음' : `${formatTime(progress.currentTime)} / ${formatTime(progress.duration)}`;
+    return `
+        <div class="episode-progress-bar">
+            <div class="episode-progress-fill" style="width: ${finished ? 100 : percent}%"></div>
+        </div>
+        <div class="episode-progress-text">${text}</div>
+    `;
+}
+
+/** 보고 있는 목록에 그 회차 행이 있으면 진행 표시만 다시 그린다 */
+export function updateRowProgress(episode) {
+    if (!episode || episode.sourceId !== state.activeSourceId) return;
+    const index = getEpisodes().findIndex((e) => e.id === episode.id);
+    const slot = UI.podcastList.querySelector(`.podcast-item[data-index="${index}"] .episode-progress`);
+    if (slot) slot.innerHTML = progressHTML(episode);
 }
 
 /** 목록 행 + 하단 재생/일시정지 버튼을 현재 재생 상태에 맞춰 동기화 */

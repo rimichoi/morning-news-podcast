@@ -4,6 +4,8 @@ export const CONFIG = {
     SPEEDS: [1.0, 1.25, 1.5, 2.0],
     PROGRESS_SAVE_INTERVAL: 5000,
     MIN_RESUME_TIME: 3,
+    // 끝 클로징 음악에서 멈춰도 다 들은 것으로 친다
+    FINISHED_REMAINING: 30,
     JSONP_CALLBACK: '__itemlist',
     JSONP_TIMEOUT: 15000,
     SKIP_SECONDS: 15,
