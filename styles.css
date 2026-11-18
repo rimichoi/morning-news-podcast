@@ -1,11 +1,11 @@
 /* ===== Theme tokens ===== */
 :root {
+    color-scheme: light;
     --bg: #f2f2f7;
     --surface: #ffffff;
     --surface-2: #e4e4ea;
     --text: #111114;
     --text-muted: #6e6e73;
-    --text-faint: #a1a1a6;
     --border: #e5e5ea;
     --track: #e5e5ea;
     --primary: #2f66ba;
@@ -21,12 +21,12 @@
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+        color-scheme: dark;
         --bg: #000000;
         --surface: #1c1c1e;
         --surface-2: #2c2c2e;
         --text: #f2f2f7;
         --text-muted: #98989f;
-        --text-faint: #636366;
         --border: #38383a;
         --track: #38383a;
         --primary: #5a92e0;
@@ -42,12 +42,12 @@
 
 /* 수동 다크 모드 (토글이 시스템 설정을 덮어씀) */
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #000000;
     --surface: #1c1c1e;
     --surface-2: #2c2c2e;
     --text: #f2f2f7;
     --text-muted: #98989f;
-    --text-faint: #636366;
     --border: #38383a;
     --track: #38383a;
     --primary: #5a92e0;
@@ -162,7 +162,7 @@ body {
     border: none;
     background: transparent;
     color: var(--text);
-    padding: 8px 4px;
+    padding: 14px 4px;
     border-radius: 8px;
     font-family: inherit;
     font-size: 13px;
@@ -313,13 +313,13 @@ body {
 
 .episode-progress-text {
     font-size: 11px;
-    color: var(--text-faint);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
 
 .play-button {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border: none;
     border-radius: 50%;
     background: var(--tint);
