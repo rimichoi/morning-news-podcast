@@ -44,6 +44,17 @@ function normalizeSbsItem(item, sourceId) {
 
 export const SOURCES = [
     {
+        id: 'sbs-gonewbeu',
+        label: '헤이 고뉴브',
+        type: 'json',
+        buildUrl: () =>
+            // 전체 40건을 받아 '헤이 고뉴브' 코너만 필터링하면 약 10건이 나온다.
+            'https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=40&sortNew=1&keyword=',
+        parse: (raw) => (raw?.data || []).map((i) => normalizeSbsItem(i, 'sbs-gonewbeu')),
+        // 풀버전/스포츠/경제 코너 제외, 대괄호 표기 헤이 고뉴브만.
+        filter: (title) => /\[헤이 고뉴브\]/.test(title)
+    },
+    {
         id: 'mbc-sisun',
         label: '시선집중',
         type: 'jsonp',
@@ -60,17 +71,6 @@ export const SOURCES = [
         buildUrl: () =>
             'https://miniapi.imbc.com/podcast/itemlist?bid=1003824100000100000&page=1&pagesize=10&callback=__itemlist',
         parse: (raw) => (raw?.Itemlist || []).map((i) => normalizeMbcItem(i, 'mbc-morning'))
-    },
-    {
-        id: 'sbs-gonewbeu',
-        label: '헤이 고뉴브',
-        type: 'json',
-        buildUrl: () =>
-            // 전체 40건을 받아 '헤이 고뉴브' 코너만 필터링하면 약 10건이 나온다.
-            'https://apis.sbs.co.kr/radio-api/podcast/podcast_list_json?vod_id=V2000010540&page=1&item_per_page=40&sortNew=1&keyword=',
-        parse: (raw) => (raw?.data || []).map((i) => normalizeSbsItem(i, 'sbs-gonewbeu')),
-        // 풀버전/스포츠/경제 코너 제외, 대괄호 표기 헤이 고뉴브만.
-        filter: (title) => /\[헤이 고뉴브\]/.test(title)
     }
 ];
 
