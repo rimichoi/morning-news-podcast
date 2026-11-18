@@ -167,6 +167,9 @@ export function toggleTheme() {
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     updateThemeButton(theme);
+    // theme-color 의 media 조건은 시스템 설정만 따르므로 수동 선택은 직접 덮어쓴다
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => { meta.content = bg; });
 }
 
 /** 현재 유효 테마 (명시 설정 없으면 시스템 값) */

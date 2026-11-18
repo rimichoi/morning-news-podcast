@@ -30,6 +30,7 @@
         --border: #38383a;
         --track: #38383a;
         --primary: #5a92e0;
+        --primary-dark: #5a92e0;
         --accent: #5a92e0;
         --tint: rgba(90, 146, 224, 0.18);
         --glass: rgba(28, 28, 30, 0.78);
@@ -51,6 +52,7 @@
     --border: #38383a;
     --track: #38383a;
     --primary: #5a92e0;
+    --primary-dark: #5a92e0;
     --accent: #5a92e0;
     --tint: rgba(90, 146, 224, 0.18);
     --glass: rgba(28, 28, 30, 0.78);
@@ -122,7 +124,7 @@ body {
 
 .speed-indicator {
     background: var(--tint);
-    color: var(--primary);
+    color: var(--primary-dark);
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 13px;
