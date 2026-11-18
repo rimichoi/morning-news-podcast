@@ -18,8 +18,15 @@ import {
     showPlayerControls,
     showError,
     setBuffering,
-    updateProgressUI
+    updateProgressUI,
+    updateRowProgress
 } from './ui.js';
+
+/** 재생 중인 회차 위치를 저장하고 목록의 그 행에도 바로 반영 */
+function saveAndShowProgress() {
+    saveCurrentProgress();
+    updateRowProgress(getPlayingEpisode());
+}
 
 /** 목록에서 클릭 시 호출. index는 활성(브라우징) 소스 목록 기준. */
 export async function playPodcast(index) {
@@ -50,7 +57,7 @@ export async function playEpisodeAt(sourceId, index) {
     }
 
     // 다른 회차로 넘어가기 전에 지금까지 듣던 회차 위치를 저장(이어듣기 정확도)
-    saveCurrentProgress();
+    saveAndShowProgress();
 
     state.playingSourceId = sourceId;
     state.playingIndex = index;
@@ -137,7 +144,6 @@ export function skipBy(delta) {
     const { duration } = UI.audioPlayer;
     if (!duration) return;
     UI.audioPlayer.currentTime = clamp(UI.audioPlayer.currentTime + delta, 0, duration);
-    saveCurrentProgress();
     updateProgressUI(UI.audioPlayer.currentTime / duration, UI.audioPlayer.currentTime, duration);
 }
 
@@ -215,7 +221,7 @@ function handleAudioTimeUpdate() {
     const playing = getPlayingEpisode();
     if (playing && now - state.lastSaveTime > CONFIG.PROGRESS_SAVE_INTERVAL) {
         state.lastSaveTime = now;
-        saveCurrentProgress();
+        saveAndShowProgress();
     }
 }
 
@@ -272,7 +278,6 @@ function setupSeekBar() {
         const dur = UI.audioPlayer.duration;
         if (dur) {
             UI.audioPlayer.currentTime = ratioFromPointer(e.clientX) * dur;
-            saveCurrentProgress();
         }
     };
 
@@ -296,9 +301,11 @@ export function initPlayer() {
     audio.addEventListener('timeupdate', handleAudioTimeUpdate);
     audio.addEventListener('play', updateRowStates);
     audio.addEventListener('pause', () => {
-        saveCurrentProgress();
+        saveAndShowProgress();
         updateRowStates();
     });
+    // ±15초·진행바 드래그·잠금화면 탐색이 모두 여기로 모인다
+    audio.addEventListener('seeked', saveAndShowProgress);
     audio.addEventListener('ended', () => {
         handleAudioEnded().catch((e) => console.error('Handle audio ended error:', e));
     });

@@ -106,7 +106,7 @@ export function clearProgress(episode) {
 export function saveCurrentProgress() {
     const playing = getPlayingEpisode();
     const { currentTime, duration } = UI.audioPlayer;
-    if (playing && duration && currentTime > 0) {
+    if (playing && duration) {
         saveProgress(playing, currentTime, duration);
         state.lastSaveTime = Date.now();
     }
